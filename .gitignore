@@ -1,5 +1,8 @@
 /logs
 /models
+# ignore model weights and eval results
+*.pth
+*json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
