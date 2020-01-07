@@ -4,7 +4,7 @@ import torch.nn as nn
 
 
 class Anchors(nn.Module):
-    def __init__(self, pyramid_levels=None, strides=None, sizes=None, ratios=None, scales=None):
+    def __init__(self, pyramid_levels = None, strides = None, sizes = None, ratios = None, scales = None):
         super(Anchors, self).__init__()
 
         if pyramid_levels is None:
@@ -12,9 +12,13 @@ class Anchors(nn.Module):
         if strides is None:
             self.strides = [2 ** x for x in self.pyramid_levels]
         if sizes is None:
-            self.sizes = [2 ** (x + 2) for x in self.pyramid_levels]
+            # alter by Alex
+            self.sizes = [2 ** (x + 1) for x in self.pyramid_levels]
+            #self.sizes = [2 ** (x + 2) for x in self.pyramid_levels]
         if ratios is None:
-            self.ratios = np.array([0.5, 1, 2])
+            # alter by Alex
+            self.ratios = np.array([0.25, 1., 4.])
+            #self.ratios = np.array([0.5, 1, 2])
         if scales is None:
             self.scales = np.array([2 ** 0, 2 ** (1.0 / 3.0), 2 ** (2.0 / 3.0)])
 
@@ -28,7 +32,7 @@ class Anchors(nn.Module):
         all_anchors = np.zeros((0, 4)).astype(np.float32)
 
         for idx, p in enumerate(self.pyramid_levels):
-            anchors         = generate_anchors(base_size=self.sizes[idx], ratios=self.ratios, scales=self.scales)
+            anchors         = generate_anchors(base_size=self.sizes[idx], ratios = self.ratios, scales = self.scales)
             shifted_anchors = shift(image_shapes[idx], self.strides[idx], anchors)
             all_anchors     = np.append(all_anchors, shifted_anchors, axis=0)
 

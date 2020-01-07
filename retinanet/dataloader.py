@@ -6,6 +6,7 @@ import numpy as np
 import random
 import csv
 
+import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms, utils
 from torch.utils.data.sampler import Sampler
@@ -64,10 +65,12 @@ class CocoDataset(Dataset):
 
         img = self.load_image(idx)
         annot = self.load_annotations(idx)
-        sample = {'img': img, 'annot': annot}
+        # alter by Alex
+        sample = {'img': img, 'annot': annot, 'scale': 1}
+        #sample = {'img': img, 'annot': annot}
         if self.transform:
             sample = self.transform(sample)
-
+        sample['scale'] = 1
         return sample
 
     def load_image(self, image_index):
@@ -120,7 +123,7 @@ class CocoDataset(Dataset):
         return float(image['width']) / float(image['height'])
 
     def num_classes(self):
-        return 80
+        return 2
 
 
 class CSVDataset(Dataset):
@@ -205,7 +208,9 @@ class CSVDataset(Dataset):
 
         img = self.load_image(idx)
         annot = self.load_annotations(idx)
-        sample = {'img': img, 'annot': annot}
+        # alter by Alex: no need rescaling image
+        sample = {'img': img, 'annot': annot, 'scale': 1}
+        #sample = {'img': img, 'annot': annot, 'scale': 1}
         if self.transform:
             sample = self.transform(sample)
 
@@ -301,7 +306,6 @@ class CSVDataset(Dataset):
 
 
 def collater(data):
-
     imgs = [s['img'] for s in data]
     annots = [s['annot'] for s in data]
     scales = [s['scale'] for s in data]
@@ -373,6 +377,14 @@ class Resizer(object):
         return {'img': torch.from_numpy(new_image), 'annot': torch.from_numpy(annots), 'scale': scale}
 
 
+class ToTensor(object):
+    """Convert ndarrays in sample to Tensors."""
+
+    def __call__(self, sample):
+        image, annots = sample['img'], sample['annot']
+        return {'img': torch.from_numpy(image.copy()), 'annot': torch.from_numpy(annots.copy()), 'scale': 1}
+
+
 class Augmenter(object):
     """Convert ndarrays in sample to Tensors."""
 
@@ -407,7 +419,7 @@ class Normalizer(object):
 
         image, annots = sample['img'], sample['annot']
 
-        return {'img':((image.astype(np.float32)-self.mean)/self.std), 'annot': annots}
+        return {'img':((image - self.mean)/self.std), 'annot': annots}
 
 class UnNormalizer(object):
     def __init__(self, mean=None, std=None):
