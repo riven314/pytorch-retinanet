@@ -2,7 +2,7 @@
 /models
 # ignore model weights and eval results
 *.pth
-*json
+*.json
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
