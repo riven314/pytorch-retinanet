@@ -132,6 +132,7 @@ def main(args=None):
     if use_gpu:
         retinanet = retinanet.cuda()
 
+    # disable multi-GPU train
     retinanet = torch.nn.DataParallel(retinanet).cuda()
 
     retinanet.training = True
@@ -143,6 +144,7 @@ def main(args=None):
     loss_hist = collections.deque(maxlen = 500)
 
     retinanet.train()
+    #retinanet.module.freeze_bn() if DataParallel activated
     retinanet.module.freeze_bn()
 
     print('Num training images: {}'.format(len(dataset_train)))
@@ -150,6 +152,7 @@ def main(args=None):
     for epoch_num in range(parser.epochs):
 
         retinanet.train()
+        # retinanet.module.freeze_bn() if DataParallel activated
         retinanet.module.freeze_bn()
 
         epoch_loss = []
@@ -158,7 +161,9 @@ def main(args=None):
         for iter_num, data in enumerate(dataloader_train):
             try:
                 optimizer.zero_grad()
-
+                assert data['img'][0].shape[0] == 3, '[ERROR] data first dim should be 3! ({})'.format(data['img'][0].shape)
+                # data['img']: (B, C, H, W)
+                # data['annot']: [x1, y1, x2, y2, class_id]
                 classification_loss, regression_loss = retinanet([data['img'].cuda().float(), data['annot']])
 
                 classification_loss = classification_loss.mean()
@@ -180,10 +185,13 @@ def main(args=None):
                 epoch_loss.append(float(loss))
 
                 # epoch starts from 0
-                print(
-                    'Epoch: {} | Iteration: {} | Total loss: {:1.5f} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f}'.format(
-                                    epoch_num, iter_num, float(loss), float(classification_loss), float(regression_loss), np.mean(loss_hist))
+                if (iter_num + 1) % 1 == 0:
+                    print(
+                        'Epoch: {} | Iteration: {} | Total loss: {:1.5f} | Classification loss: {:1.5f} | Regression loss: {:1.5f} | Running loss: {:1.5f}'.format(
+                                        epoch_num, iter_num, float(loss), float(classification_loss), float(regression_loss), np.mean(loss_hist)
                                 )
+                            )
+                
                 # update tensorboard
                 if tb_writer is not None:
                     crt_iter = (epoch_num) * iter_per_epoch + (iter_num + 1)
@@ -213,13 +221,16 @@ def main(args=None):
 
         scheduler.step(np.mean(epoch_loss))
         if (epoch_num + 1) % parser.save_int == 0:
-            torch.save(retinanet.state_dict(), os.path.join(model_dir, 'retinanet_s{:02d}_e{:03d}.pth'.format(session, epoch_num)))
+            # retinanet (before DataParallel): <class 'retinanet.model.ResNet'>, no self.module
+            # retinanet (after DataParallel): <class 'torch.nn.parallel.data_parallel.DataParallel>, self.module available
+            # retinanet.module (after DataParallel): <class 'retinanet.model.ResNet'>
+            torch.save(retinanet.module.state_dict(), os.path.join(model_dir, 'retinanet_s{:02d}_e{:03d}.pth'.format(session, epoch_num)))
 
     if parser.use_tb:
         tb_writer.close()
 
     retinanet.eval()
-    torch.save(retinanet.state_dict(), os.path.join(model_dir, 'retinanet_s{:02d}_e{:03d}.pth'.format(session, epoch_num)))
+    torch.save(retinanet.module.state_dict(), os.path.join(model_dir, 'retinanet_s{:02d}_e{:03d}.pth'.format(session, epoch_num)))
 
 
 if __name__ == '__main__':

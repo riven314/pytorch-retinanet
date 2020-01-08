@@ -1,3 +1,9 @@
+"""
+PROGRESS
+[08/01/2020]:
+- doing inference mode for visualize predicted images
+- need to edit collate_fn(), there are some unneccessary computation
+"""
 from pycocotools.cocoeval import COCOeval
 import json
 import torch
@@ -18,6 +24,7 @@ def evaluate_coco(dataset, model, threshold=0.05):
             scale = data['scale']
 
             # run network
+            assert data['image'].shape[-1] == 3, '[ERROR] data[image] last dim should be 3!'
             scores, labels, boxes = model(data['img'].permute(2, 0, 1).cuda().float().unsqueeze(dim=0))
             scores = scores.cpu()
             labels = labels.cpu()
